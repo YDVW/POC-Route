@@ -29,6 +29,18 @@
 1. In Shell tab: `pip install openrouteservice==2.3.3`
 2. Or restart the Repl (click 3 dots → "Restart Repl")
 
+### Error: "numpy.dtype size changed, may indicate binary incompatibility"
+**Solution**: This is a numpy/pandas version compatibility issue. Try:
+1. **Quick fix**: Run `python fix_numpy_replit.py` in the Shell tab
+2. **Manual fix**: In Shell tab:
+   ```bash
+   pip uninstall -y numpy pandas
+   pip install --no-cache-dir numpy==1.24.3
+   pip install --no-cache-dir pandas==2.0.3
+   pip install -r requirements.txt
+   ```
+3. **Alternative**: Restart the Repl completely
+
 ## 🔧 Manual Setup (if automatic setup fails)
 
 If the automatic setup doesn't work, try these steps in the Shell tab:

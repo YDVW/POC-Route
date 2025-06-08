@@ -33,11 +33,27 @@ def main():
     if not run_command("python -m pip install --upgrade pip", "Upgrading pip"):
         print("⚠️  Warning: Could not upgrade pip, continuing...")
     
+    # Fix numpy/pandas compatibility issues by installing in specific order
+    print("🔧 Installing numpy first to avoid compatibility issues...")
+    if not run_command("pip install --no-cache-dir numpy==1.24.3", "Installing numpy"):
+        print("⚠️  Warning: Could not install numpy specifically, continuing...")
+    
     # Install requirements
     if os.path.exists("requirements.txt"):
-        if not run_command("pip install -r requirements.txt", "Installing Python packages"):
-            print("❌ Failed to install requirements. Exiting.")
-            sys.exit(1)
+        if not run_command("pip install --no-cache-dir -r requirements.txt", "Installing Python packages"):
+            print("❌ Failed to install requirements. Trying alternative approach...")
+            # Try installing packages individually if batch install fails
+            packages = [
+                "Flask==2.3.3",
+                "pandas==2.0.3", 
+                "Werkzeug==2.3.7",
+                "openrouteservice==2.3.3",
+                "geopy==2.4.0",
+                "requests==2.31.0"
+            ]
+            for package in packages:
+                if not run_command(f"pip install --no-cache-dir {package}", f"Installing {package}"):
+                    print(f"⚠️  Warning: Could not install {package}")
     else:
         print("⚠️  Warning: requirements.txt not found")
     
@@ -77,6 +93,8 @@ def main():
         sys.exit(1)
     except Exception as e:
         print(f"❌ Error running application: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
 if __name__ == "__main__":

@@ -1,6 +1,8 @@
 { pkgs }: {
   deps = [
     pkgs.python311Full
+    pkgs.python311Packages.pip
+    pkgs.python311Packages.numpy
     pkgs.replitPackages.prybar-python311
     pkgs.replitPackages.stderred
     pkgs.postgresql
@@ -44,5 +46,7 @@
       pkgs.libffi
       pkgs.gfortran.cc.lib
     ];
+    # Fix numpy compatibility issues
+    NPY_NUM_BUILD_JOBS = "1";
   };
 } 
