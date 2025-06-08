@@ -1,7 +1,10 @@
+# Core Flask requirements for Vercel
 Flask==2.3.3
 pandas==2.0.3
 numpy==1.24.3
 Werkzeug==2.3.7
-openrouteservice==2.3.3
-geopy==2.4.0
-requests==2.31.0 
+requests==2.31.0
+
+# Optional packages for full functionality (local deployment only)
+# openrouteservice==2.3.3  # Works locally but may have issues in serverless
+# geopy==2.4.0  # Works locally but may have issues in serverless 
