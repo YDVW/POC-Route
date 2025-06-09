@@ -287,24 +287,50 @@ def upload_file():
         geocoded_count = 0
         cache_hits = 0
         
+        # Debug: Print column names for troubleshooting
+        logger.info(f"Available columns: {list(df.columns)}")
+        
         for index, row in df.iterrows():
-            # Try to find address columns
+            # Try to find address columns with improved matching
             street = None
             postcode = None
             city = None
             name = None
             
-            # Look for common column names
+            # Look for common column names with better matching
             for col in df.columns:
-                col_lower = col.lower()
-                if 'street' in col_lower or 'straße' in col_lower or col_lower == 'street':
-                    street = str(row[col]) if pd.notna(row[col]) else None
-                elif 'post' in col_lower or 'zip' in col_lower or 'plz' in col_lower:
-                    postcode = str(row[col]) if pd.notna(row[col]) else None
-                elif 'city' in col_lower or 'stadt' in col_lower or col_lower == 'city':
-                    city = str(row[col]) if pd.notna(row[col]) else None
-                elif 'name' in col_lower and not name:
-                    name = str(row[col]) if pd.notna(row[col]) else None
+                col_lower = col.lower().strip()
+                col_clean = col.strip()  # Keep original case for exact matches
+                
+                # Street column matching
+                if (street is None and 
+                    (col_clean == 'Street' or col_clean == 'Straße' or col_clean == 'street' or
+                     'street' in col_lower or 'straße' in col_lower or 'strasse' in col_lower)):
+                    street = str(row[col]).strip() if pd.notna(row[col]) else None
+                    logger.info(f"Found street column: '{col}' -> '{street}'")
+                
+                # Post code column matching  
+                elif (postcode is None and
+                      (col_clean == 'Post code' or col_clean == 'Postcode' or col_clean == 'ZIP' or 
+                       col_clean == 'PLZ' or col_clean == 'Postal Code' or
+                       'post' in col_lower or 'zip' in col_lower or 'plz' in col_lower or 'postal' in col_lower)):
+                    postcode = str(row[col]).strip() if pd.notna(row[col]) else None
+                    logger.info(f"Found postcode column: '{col}' -> '{postcode}'")
+                
+                # City column matching
+                elif (city is None and
+                      (col_clean == 'City' or col_clean == 'Stadt' or col_clean == 'city' or
+                       'city' in col_lower or 'stadt' in col_lower or 'ort' in col_lower)):
+                    city = str(row[col]).strip() if pd.notna(row[col]) else None
+                    logger.info(f"Found city column: '{col}' -> '{city}'")
+                
+                # Name column matching
+                elif (name is None and 'name' in col_lower and 'shipment' not in col_lower):
+                    name = str(row[col]).strip() if pd.notna(row[col]) else None
+            
+            # Log what we found for first few rows
+            if index < 3:
+                logger.info(f"Row {index}: street='{street}', postcode='{postcode}', city='{city}', name='{name}'")
             
             if street and postcode and city:
                 coords = geocode_address(street, postcode, city)
@@ -323,17 +349,29 @@ def upload_file():
                     address_key = f"{street}, {postcode}, {city}, Germany"
                     if address_key in GEOCODING_CACHE:
                         cache_hits += 1
+            else:
+                # Log missing data for troubleshooting
+                if index < 3:
+                    missing = []
+                    if not street: missing.append("street")
+                    if not postcode: missing.append("postcode") 
+                    if not city: missing.append("city")
+                    logger.warning(f"Row {index} missing: {', '.join(missing)}")
         
         # Safe cache hit rate calculation
         cache_hit_rate = (cache_hits/geocoded_count*100) if geocoded_count > 0 else 0
         logger.info(f"Geocoded {geocoded_count}/{len(df)} stops ({cache_hits} cache hits, {cache_hit_rate:.1f}% hit rate)")
         
         if len(stops_with_coords) < 2:
+            # Enhanced error message with column suggestions
+            available_cols = list(df.columns)
             return jsonify({
                 'error': 'Not enough geocoded addresses for route optimization',
                 'geocoded_count': geocoded_count,
                 'total_addresses': len(df),
-                'note': 'Please ensure your CSV has Street, Post code, and City columns with valid German addresses'
+                'available_columns': available_cols,
+                'note': f'Please ensure your CSV has columns for street address, postal code, and city. Found columns: {available_cols}',
+                'expected_columns': ['Street', 'Post code', 'City', 'Name (optional)']
             }), 400
         
         # Perform route optimization
