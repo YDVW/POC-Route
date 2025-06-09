@@ -128,6 +128,10 @@ def optimize_route_2opt(stops_with_coords):
     current_distance = calculate_route_distance(current_route)
     original_distance = current_distance
     
+    # Prevent division by zero
+    if original_distance == 0:
+        return stops_with_coords, 0.0
+    
     improved = True
     iterations = 0
     max_iterations = 10  # Limit for serverless
@@ -154,7 +158,10 @@ def optimize_route_2opt(stops_with_coords):
     distance_saved = original_distance - current_distance
     
     logger.info(f"2-Opt completed after {iterations} iterations, improved: {distance_saved > 0}")
-    logger.info(f"Route optimization: {n} stops, {distance_saved:.2f}km saved ({(distance_saved/original_distance)*100:.1f}%)")
+    
+    # Safe percentage calculation
+    improvement_pct = (distance_saved/original_distance)*100 if original_distance > 0 else 0
+    logger.info(f"Route optimization: {n} stops, {distance_saved:.2f}km saved ({improvement_pct:.1f}%)")
     
     return optimized_stops, distance_saved
 
@@ -317,13 +324,16 @@ def upload_file():
                     if address_key in GEOCODING_CACHE:
                         cache_hits += 1
         
-        logger.info(f"Geocoded {geocoded_count}/{len(df)} stops ({cache_hits} cache hits, {cache_hits/geocoded_count*100:.1f}% hit rate)")
+        # Safe cache hit rate calculation
+        cache_hit_rate = (cache_hits/geocoded_count*100) if geocoded_count > 0 else 0
+        logger.info(f"Geocoded {geocoded_count}/{len(df)} stops ({cache_hits} cache hits, {cache_hit_rate:.1f}% hit rate)")
         
         if len(stops_with_coords) < 2:
             return jsonify({
                 'error': 'Not enough geocoded addresses for route optimization',
                 'geocoded_count': geocoded_count,
-                'total_addresses': len(df)
+                'total_addresses': len(df),
+                'note': 'Please ensure your CSV has Street, Post code, and City columns with valid German addresses'
             }), 400
         
         # Perform route optimization
@@ -340,6 +350,10 @@ def upload_file():
             lat2, lng2 = next_stop['coords']
             total_distance += haversine_distance(lat1, lng1, lat2, lng2)
         
+        # Safe improvement percentage calculation
+        total_original_distance = total_distance + distance_saved
+        improvement_pct = (distance_saved/total_original_distance*100) if total_original_distance > 0 else 0
+        
         # Prepare response
         result = {
             'success': True,
@@ -355,13 +369,13 @@ def upload_file():
                     'total_addresses': len(df),
                     'geocoded_successfully': geocoded_count,
                     'cache_hits': cache_hits,
-                    'cache_hit_rate': f"{cache_hits/geocoded_count*100:.1f}%" if geocoded_count > 0 else "0%"
+                    'cache_hit_rate': f"{cache_hit_rate:.1f}%"
                 },
                 'optimization': {
                     'stops_optimized': len(optimized_stops),
                     'total_distance_km': round(total_distance, 2),
                     'distance_saved_km': round(distance_saved, 2),
-                    'improvement_percentage': f"{(distance_saved/(total_distance + distance_saved))*100:.1f}%",
+                    'improvement_percentage': f"{improvement_pct:.1f}%",
                     'optimization_time_seconds': round(optimization_time, 2)
                 }
             },
@@ -380,7 +394,7 @@ def upload_file():
             'github_repo': 'https://github.com/YDVW/POC-Route.git'
         }
         
-        logger.info(f"Optimization complete: {distance_saved:.2f}km saved ({(distance_saved/(total_distance + distance_saved))*100:.1f}% improvement)")
+        logger.info(f"Optimization complete: {distance_saved:.2f}km saved ({improvement_pct:.1f}% improvement)")
         logger.info(f"Route optimization completed in {optimization_time:.2f} seconds")
         
         return jsonify(result)
